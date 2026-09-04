@@ -20,7 +20,9 @@ jobs:
 
       - name: Préparer buildx
         run: |
-          docker buildx create --use --name multiarch --driver docker-container 2>/dev/null || docker buildx use multiarch
+          printf '[registry."192.168.1.102:5000"]\n  http = true\n  insecure = true\n' > /tmp/buildkitd.toml
+          docker buildx rm multiarch 2>/dev/null || true
+          docker buildx create --use --name multiarch --driver docker-container --config /tmp/buildkitd.toml
 
       - name: Build ARM64 et push vers le Registry
         run: |
