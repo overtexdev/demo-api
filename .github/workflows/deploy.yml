@@ -44,11 +44,11 @@ jobs:
             docker pull $REGISTRY/$IMAGE_NAME:latest && \
             docker rm -f demo-api 2>/dev/null || true && \
             docker run -d --name demo-api --restart unless-stopped \
-              -p 8000:8000 \
+              -p 8010:8000 \
               -e APP_VERSION=${{ github.sha }} \
               $REGISTRY/$IMAGE_NAME:latest"
 
       - name: Vérifier le déploiement
         run: |
           sleep 5
-          ssh -i ~/.ssh/deploy_pi $PI_USER@$PI_HOST "curl -s http://localhost:8000/health"
+          ssh -i ~/.ssh/deploy_pi $PI_USER@$PI_HOST "curl -s http://localhost:8010/health"
