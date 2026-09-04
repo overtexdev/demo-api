@@ -1,0 +1,51 @@
+name: CI/CD - Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: 192.168.1.102:5000
+  IMAGE_NAME: demo-api
+  PI_HOST: 192.168.1.200
+  PI_USER: overtex
+
+jobs:
+  build-and-deploy:
+    runs-on: [self-hosted, homelab]
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Build de l'image Docker
+        run: |
+          docker build -t $REGISTRY/$IMAGE_NAME:${{ github.sha }} \
+                       -t $REGISTRY/$IMAGE_NAME:latest .
+
+      - name: Push vers le Registry privé
+        run: |
+          docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
+          docker push $REGISTRY/$IMAGE_NAME:latest
+
+      - name: Préparer la clé SSH de déploiement
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PI_SSH_KEY }}" > ~/.ssh/deploy_pi
+          chmod 600 ~/.ssh/deploy_pi
+          ssh-keyscan -H $PI_HOST >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Déployer sur le Raspberry Pi
+        run: |
+          ssh -i ~/.ssh/deploy_pi $PI_USER@$PI_HOST "\
+            docker pull $REGISTRY/$IMAGE_NAME:latest && \
+            docker rm -f demo-api 2>/dev/null || true && \
+            docker run -d --name demo-api --restart unless-stopped \
+              -p 8000:8000 \
+              -e APP_VERSION=${{ github.sha }} \
+              $REGISTRY/$IMAGE_NAME:latest"
+
+      - name: Vérifier le déploiement
+        run: |
+          sleep 5
+          ssh -i ~/.ssh/deploy_pi $PI_USER@$PI_HOST "curl -s http://localhost:8000/health"
