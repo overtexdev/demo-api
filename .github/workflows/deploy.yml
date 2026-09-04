@@ -18,16 +18,17 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Build de l'image Docker
+      - name: Préparer buildx
         run: |
-          docker build -t $REGISTRY/$IMAGE_NAME:${{ github.sha }} \
-                       -t $REGISTRY/$IMAGE_NAME:latest .
+          docker buildx create --use --name multiarch --driver docker-container 2>/dev/null || docker buildx use multiarch
 
-      - name: Push vers le Registry privé
+      - name: Build ARM64 et push vers le Registry
         run: |
-          docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
-          docker push $REGISTRY/$IMAGE_NAME:latest
-
+          docker buildx build \
+            --platform linux/arm64 \
+            -t $REGISTRY/$IMAGE_NAME:${{ github.sha }} \
+            -t $REGISTRY/$IMAGE_NAME:latest \
+            --push .
       - name: Préparer la clé SSH de déploiement
         run: |
           mkdir -p ~/.ssh
